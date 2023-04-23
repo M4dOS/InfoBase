@@ -38,11 +38,13 @@ namespace InfoBase
             DataBase db = new DataBase();
             if (!File.Exists(workDir + "Data.xlsx")) db.CreateDataList(workDir + "Data.xlsx");
             if (!File.Exists(workDir + "Users.xlsx")) db.CreateUserList(workDir + "Users.xlsx");
-
-            db.CreateDayList("18.09.2021");
+            if (Directory.GetFiles(daysDir, "*.txt").Length == 0) db.CreateDayList("15.01.2001");
 
             //заполнение данных и проверка на подлинность (непустоту) 
-            if (db.FillData(workDir + "Data.xlsx") && db.FillUsers(workDir + "Users.xlsx") && db.FillDays(daysDir))
+            if (!db.FillData(workDir + "Data.xlsx")) Console.WriteLine("У тебя ошибка в FillData :>");
+            else if (!db.FillUsers(workDir + "Users.xlsx")) Console.WriteLine("У тебя ошибка в FillUsers :>");
+            else if (!db.FillDays(daysDir)) Console.WriteLine("У тебя ошибка в FillDays :>");
+            else
             {
                 Console.WriteLine("Жмакай любую клавишу"); Console.ReadKey();
 
@@ -50,10 +52,6 @@ namespace InfoBase
                 {
                     /*место  для пары строчек кода*/
                 }
-            }
-            else
-            {
-                Console.WriteLine("Жмакай любую клавишу, у тебя ошибка :>"); Console.ReadKey();
             }
         }
     }

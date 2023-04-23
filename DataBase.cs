@@ -49,10 +49,11 @@ namespace InfoBase
                 string? user_login = users.Cells[$"A{index}"].Value?.ToString();
                 string? user_password = users.Cells[$"B{index}"].Value?.ToString();
                 string? user_access = users.Cells[$"C{index}"].Value?.ToString();
-                if (user_password == null || user_login == null || user_access == null) break;
+                string? user_name = users.Cells[$"D{index}"].Value?.ToString();
+                if (user_password == null || user_login == null || user_access == null || user_name == null) break;
                 else
                 {
-                    this.users.Add(new(user_login, user_password, user_access));
+                    this.users.Add(new(user_login, user_password, user_access, user_name));
                     index++;
                 }
             }
@@ -127,16 +128,23 @@ namespace InfoBase
                 string date = Path.GetFileName(fileName).Split(".txt")[0];
                 using (StreamReader reader = new StreamReader(fileName))
                 {
-                    string line;
-                    bool cond = false;
-                    while ((line = reader.ReadLine()) != null)
+                    if (reader.EndOfStream)
                     {
-                        foreach(var aud in auditoriums)
-                        {
-                            if (line.Split("|")[5] == aud.tag) { aud.AddNote(new(line, date, this)); cond = true; break; }
-                        }
+                        Console.WriteLine($"Файл {fileName} пуст");
                     }
-                    if (!cond) return false;
+                    else
+                    {
+                        string line;
+                        bool cond = false;
+                        while ((line = reader.ReadLine()) != null)
+                        {
+                            foreach (var aud in auditoriums)
+                            {
+                                if (line.Split("|")[5] == aud.tag) { aud.AddNote(new(line, date, this)); cond = true; break; }
+                            }
+                        }
+                        if (!cond) return false;
+                    }
                 }
             }
             return true;
