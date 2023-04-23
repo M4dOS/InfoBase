@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "InfoBase": {
+      "commandName": "Project",
+      "workingDirectory": "$(ProjectDir)",
+      "remoteDebugEnabled": false
+    }
+  }
+}
