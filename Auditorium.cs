@@ -19,7 +19,7 @@ namespace InfoBase
             this.capacity = capacity;
             this.timetable = new List<Note>();
         }
-        public void AddNote(Note note, DataBase db)
+        public void AddNote(Note note)
         {
             var startTime = DataBase.Date($"{note.startTime.Day}.{note.startTime.Month}.{note.startTime.Year}" + " " + this.startTime);
             var endTime = DataBase.Date($"{note.endTime.Day}.{note.endTime.Month}.{note.endTime.Year}" + " " + this.endTime);
@@ -32,15 +32,11 @@ namespace InfoBase
                     if(!(note1.endTime<=note.startTime || note1.startTime>=note.endTime)) { cond = false; break; }
                 }
                 if (cond) { timetable.Add(note); timetable.Sort((x, y) => x.startTime.CompareTo(y.startTime)); }
-                else
-                {
-                    db.LogState("Бронь несовместима с другими бронями (Пересекается с другими бронями)");
-                }
+                else Console.WriteLine("бронь несовместима с другими бронями");
             }
-
             else
             {
-                db.LogState("Бронь неудовлетворяет условиям (Не подходит под допустимое время аудитории)");
+                Console.WriteLine("бронь неудовлетворяет условиям");
             }
         }
     }

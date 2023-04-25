@@ -32,7 +32,7 @@
             teacher = parametrs[3];
             subname = parametrs[4];
             auditorium = db.FindAuditorium(parametrs[5]);
-            if (auditorium == null) db.LogState($"Такой аудитории не существует: \"{parametrs[5]}\"");
+            if (auditorium == null) Console.WriteLine($"такой аудитории не существует: \"{parametrs[5]}\"");
             else this.capacity = auditorium.capacity;
         }
     }
