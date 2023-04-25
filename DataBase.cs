@@ -1,6 +1,4 @@
-﻿using DocumentFormat.OpenXml.Spreadsheet;
-using OfficeOpenXml;
-using OfficeOpenXml.FormulaParsing.Excel.Functions.DateTime.Workdays;
+﻿using OfficeOpenXml;
 
 namespace InfoBase
 {
@@ -11,8 +9,10 @@ namespace InfoBase
         public List<Auditorium> auditoriums;
         /*public List<Note> fullTimetable;*/
         public List<User> users;
+        public string logfile_path;
+        int log_counter;
 
-
+        //некоторые вспомогательные инструменты
         public static DateTime Date(string date)//для дат формата "dd.mm.YYYY hh:mm" 
         {
             string[] datenums = date.Split(' ')[0].Split('.');
@@ -20,7 +20,22 @@ namespace InfoBase
             return new DateTime(int.Parse(datenums[2]), int.Parse(datenums[1]), int.Parse(datenums[0]),
                                 int.Parse(timenums[0]), int.Parse(timenums[1]), 0);
         }
-        public Auditorium FindAuditorium(string tag)
+        public void LogState(string message)//логирование всего 
+        {
+            log_counter++;
+            string dirWithLogName = logfile_path + DateTime.Now.ToString("dd-MM-yyyy") + ".log";
+            if (!File.Exists(dirWithLogName)) using (File.Create(dirWithLogName)) { };
+
+            using (StreamWriter writer = new StreamWriter(dirWithLogName, true))
+            {
+                int n = 20;
+                string line = string.Empty;
+                for (int i = 0; i < n; i++) { line += '-'; }
+                if (log_counter == 1) writer.Write('\n' + line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+                writer.Write(DateTime.Now.ToString("HH:mm:ss") + " : " + message + '\n');
+            }
+        }
+        public Auditorium FindAuditorium(string tag)//найти аудиторию по имени 
         {
             foreach (var auditor in auditoriums)
             {
@@ -28,8 +43,17 @@ namespace InfoBase
             }
             return null;
         }
+        public DataBase(string logfile_path)//конструктор 
+        {
+            log_counter = 0;
+            subjects = new();
+            teachers = new();
+            auditoriums = new();
+            users = new();
+            this.logfile_path = logfile_path;
+        }
 
-
+        //рабочие инструменты базы данных
         public bool FillUsers(string excelFileName)//первоначальное заполнение всех пользователей 
         {
             //открываем файл с данными 
@@ -38,7 +62,7 @@ namespace InfoBase
             ExcelWorksheet? users = excel.Workbook.Worksheets["Данные"];
             if (users == null)
             {
-                Console.WriteLine("Пересмотри вводимые тобой данные. Нажми любую клавишу для выхода");
+                LogState("Пересмотри вводимые тобой данные. Нажми любую клавишу для выхода");
                 Console.ReadKey();
                 return false;
             }
@@ -53,7 +77,7 @@ namespace InfoBase
                 if (user_password == null || user_login == null || user_access == null || user_name == null) break;
                 else
                 {
-                    this.users.Add(new(user_login, user_password, user_access, user_name));
+                    this.users.Add(new(user_login, user_password, user_access, user_name, this));
                     index++;
                 }
             }
@@ -73,7 +97,7 @@ namespace InfoBase
 
             if (subjects == null || teachers == null || auditoriums == null)
             {
-                Console.WriteLine("Пересмотри вводимые тобой данные. Нажми любую клавишу для выхода");
+                LogState("Пересмотри вводимые тобой данные. Нажми любую клавишу для выхода");
                 Console.ReadKey();
                 return false;
             }
@@ -91,14 +115,33 @@ namespace InfoBase
             }
 
             index = 1;
+            List<string> temp_teachs = new();
             while (true)
             {
+                if (index == 1) foreach (var user in users.Where(usr => usr.access == Access.Teacher).ToList())
+                    {
+                        this.teachers.Add(user.name);
+                        temp_teachs.Add(user.name);
+                    }
+
                 string? teach = teachers.Cells[$"A{index}"].Value?.ToString();
                 if (teach == null) break;
                 else
                 {
-                    this.teachers.Add(teach);
+                    bool cond = true;
+                    foreach (var user in users.Where(usr => usr.access == Access.Teacher).ToList())
+                    {
+                        if (teach == user.name) { cond = false; break; }
+                    }
+                    if (cond) this.teachers.Add(teach);
+                    cond = true;
                     index++;
+                }
+
+                if (this.teachers.Except(temp_teachs).ToList().Count != 0)
+                {
+                    LogState("Списки учителей не совпадают со списком пользователей с доступом Teacher");
+                    return false;
                 }
             }
 
@@ -112,7 +155,7 @@ namespace InfoBase
                 if (codeName == null || startTime == null || endTime == null || capacity == null) break;
                 else
                 {
-                    string? start = startTime.Split(":")[0]+':'+startTime.Split(":")[1];
+                    string? start = startTime.Split(":")[0] + ':' + startTime.Split(":")[1];
                     string? end = endTime.Split(":")[0] + ':' + endTime.Split(":")[1];
                     this.auditoriums.Add(new(codeName, start, end, int.Parse(capacity)));
                     index++;
@@ -130,7 +173,7 @@ namespace InfoBase
                 {
                     if (reader.EndOfStream)
                     {
-                        Console.WriteLine($"Файл {fileName} пуст");
+                        LogState($"Файл \".../data/days/{date}\" пуст");
                     }
                     else
                     {
@@ -140,7 +183,7 @@ namespace InfoBase
                         {
                             foreach (var aud in auditoriums)
                             {
-                                if (line.Split("|")[5] == aud.tag) { aud.AddNote(new(line, date, this)); cond = true; break; }
+                                if (line.Split("|")[5] == aud.tag) { aud.AddNote(new(line, date, this), this); cond = true; break; }
                             }
                         }
                         if (!cond) return false;
@@ -149,10 +192,47 @@ namespace InfoBase
             }
             return true;
         }
+        public User GetUser(string name, string mode)//найти класс User по определённому параметру
+        {
+            bool cond = false;
+            switch (mode)
+            {
+                case "Имя":
+                    foreach (var user in users)
+                    {
+                        if (user.name == name) { cond = true; return user; }
+                    }
+                    break;
+
+                case "Логин":
+                    foreach (var user in users)
+                    {
+                        if (user.login == name) { cond = true; return user; }
+                    }
+                    LogState($"Пользователя с логином {name} нету в базе данных");
+                    break;
+
+                default:
+                    LogState($"Задан неверный параметр поиска пользователя \"{mode}\"");
+                    break;
+            }
+
+            switch (mode)
+            {
+                case "Имя":
+                    if (!cond) LogState($"Пользователя с именем {name} нету в базе данных");
+                    break;
+
+                case "Логин":
+                    if (!cond) LogState($"Пользователя с логином {name} нету в базе данных");
+                    break;
+            }
+            return null;
+        }
 
 
-
-        public void CreateDataList(string fileName)//создание макета списка данных 
+        //базовые функции, не требующиеся в дальнейшем использовании
+        public bool CreateDataList(string fileName)//создание макета списка данных 
         {
             //создаем новый документ 
             ExcelPackage excel = new ExcelPackage();
@@ -183,9 +263,9 @@ namespace InfoBase
 
             //сохраняем документ 
             FileInfo excelFile = new(fullPath);
-            excel.SaveAs(excelFile);
+            if (!File.Exists(fullPath)) { excel.SaveAs(excelFile); return false; } else return false;
         }
-        public void CreateUserList(string fileName)//создание макета списка юзеров 
+        public bool CreateUserList(string fileName)//создание макета списка юзеров 
         {
             //создаем новый документ 
             ExcelPackage excel = new ExcelPackage();
@@ -208,24 +288,15 @@ namespace InfoBase
 
             //сохраняем документ 
             FileInfo excelFile = new(fullPath);
-            excel.SaveAs(excelFile);
+            if (!File.Exists(fullPath)) { excel.SaveAs(excelFile); return false; } else return true;
         }
-        public void CreateDayList(string fileName)//создание макета списка дня 
+        public bool CreateDayList(string fileName)//создание макета списка дня 
         {
             //создаем новый документ 
             string currentDirectory = Directory.GetCurrentDirectory();
             string fullPath = currentDirectory + @"\data\days\" + fileName + ".txt";
 
-            if (!File.Exists(fullPath)) File.Create(fullPath);
-        }
-
-
-        public DataBase()//конструктор 
-        {
-            subjects = new();
-            teachers = new();
-            auditoriums = new();
-            users = new();
+            if (!File.Exists(fullPath)) { File.Create(fullPath); return false; } else return true;
         }
     }
 }

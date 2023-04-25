@@ -3,13 +3,13 @@
     internal enum Access { User, Teacher, Admin }
     internal class User
     {
-        public string user;
+        public string login;
         public string password;
         public Access access;
         public string name;
-        public User(string user, string password, string access, string name)
+        public User(string user, string password, string access, string name, DataBase db)
         {
-            this.user = user;
+            this.login = user;
             this.password = password;
             switch (access)
             {
@@ -22,8 +22,8 @@
                 case "admin":
                     this.access = Access.Admin;
                     break;
-                default: 
-                    Console.WriteLine($"уровень доступа {user} не получен");
+                default:
+                    db.LogState($"Уровень доступа {user} не получен");
                     break;
             }
             this.name = name;
