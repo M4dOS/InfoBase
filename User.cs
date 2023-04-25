@@ -6,7 +6,8 @@
         public string user;
         public string password;
         public Access access;
-        public User(string user, string password, string access)
+        public string name;
+        public User(string user, string password, string access, string name)
         {
             this.user = user;
             this.password = password;
@@ -25,6 +26,7 @@
                     Console.WriteLine($"уровень доступа {user} не получен");
                     break;
             }
+            this.name = name;
         }
     }
 }
