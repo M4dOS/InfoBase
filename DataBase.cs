@@ -10,6 +10,9 @@ namespace InfoBase
         /*public List<Note> fullTimetable;*/
         public List<User> users;
         public string logfile_path;
+
+        bool consoleLogging;
+        /*public bool critError;*/
         int log_counter;
 
         //некоторые вспомогательные инструменты
@@ -31,19 +34,16 @@ namespace InfoBase
                 int n = 20;
                 string line = string.Empty;
                 for (int i = 0; i < n; i++) { line += '-'; }
-                if (log_counter == 1) writer.Write('\n' + line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+                if (log_counter == 1)
+                {
+                    writer.Write('\n' + line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+                    if (consoleLogging) Console.WriteLine('\n' + line + " ЛОГ ЗАПУСКА " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+                }
                 writer.Write(DateTime.Now.ToString("HH:mm:ss") + " : " + message + '\n');
+                if (consoleLogging) Console.Write(DateTime.Now.ToString("HH:mm:ss") + " : " + message + '\n');
             }
         }
-        public Auditorium FindAuditorium(string tag)//найти аудиторию по имени 
-        {
-            foreach (var auditor in auditoriums)
-            {
-                if (auditor.tag == tag) return auditor;
-            }
-            return null;
-        }
-        public DataBase(string logfile_path)//конструктор 
+        public DataBase(string logfile_path, bool consoleLogging)//конструктор 
         {
             log_counter = 0;
             subjects = new();
@@ -51,7 +51,9 @@ namespace InfoBase
             auditoriums = new();
             users = new();
             this.logfile_path = logfile_path;
+            this.consoleLogging = consoleLogging;
         }
+
 
         //рабочие инструменты базы данных
         public bool FillUsers(string excelFileName)//первоначальное заполнение всех пользователей 
@@ -166,6 +168,8 @@ namespace InfoBase
         public bool FillDays(string workDir)//первоначальное заполнение всех броней 
         {
             string[] files = Directory.GetFiles(workDir, "*.txt");
+            Note? temp_note = new();
+            Auditorium? temp_auitorium = new();
             foreach (var fileName in files)
             {
                 string date = Path.GetFileName(fileName).Split(".txt")[0];
@@ -179,11 +183,43 @@ namespace InfoBase
                     {
                         string line;
                         bool cond = false;
+                        bool falseNote = true;
                         while ((line = reader.ReadLine()) != null)
                         {
-                            foreach (var aud in auditoriums)
+                            string[] parametrs = line.Split("|");
+                            if(parametrs.Length == 6)
                             {
-                                if (line.Split("|")[5] == aud.tag) { aud.AddNote(new(line, date, this), this); cond = true; break; }
+                                foreach (var aud in auditoriums)
+                                {
+                                    if (line.Split("|")[5] == aud.tag) 
+                                    {
+                                        temp_note = new(line, date, this);
+                                        temp_auitorium = aud;
+                                        if (aud.AddNote(temp_note, this))
+                                        {
+                                            cond = true;
+                                            falseNote = false;
+                                        }
+                                        else
+                                        {
+                                            falseNote = true;
+                                        }
+                                        break; 
+                                    }
+                                }
+                            }
+                            else if (parametrs.Length == 2 && !falseNote)
+                            {
+                                User? temp_user = GetFullUser(parametrs[0], parametrs[1]);
+                                if (temp_auitorium == null || temp_note == null) { LogState($"Прочтение строки {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"}"); return false; }
+                                /*else*/ if (temp_user == null) { LogState($"Взятие пользователя по строке {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"} и Data.xlsx"); return false; }
+                                else 
+                                {
+                                    auditoriums.Find(x => x == temp_auitorium).timetable.Find(x => x == temp_note).participators.Add(temp_user);
+                                    users.Find(x => x == temp_user).participating.Add(temp_note);
+                                    temp_user.participating.Add(temp_note);
+                                    /*temp_auitorium.timetable.Find(x => x == temp_note).participators.Add(temp_user);*/
+                                }
                             }
                         }
                         if (!cond) return false;
@@ -192,41 +228,68 @@ namespace InfoBase
             }
             return true;
         }
-        public User GetUser(string name, string mode)//найти класс User по определённому параметру
+        public User GetUser(string name, bool mode)//найти класс User по определённому параметру 
         {
             bool cond = false;
             switch (mode)
             {
-                case "Имя":
+                case false: //поиск по имени
                     foreach (var user in users)
                     {
                         if (user.name == name) { cond = true; return user; }
                     }
                     break;
 
-                case "Логин":
+                case true: //поиск по логину
                     foreach (var user in users)
                     {
                         if (user.login == name) { cond = true; return user; }
                     }
                     LogState($"Пользователя с логином {name} нету в базе данных");
                     break;
-
-                default:
-                    LogState($"Задан неверный параметр поиска пользователя \"{mode}\"");
-                    break;
             }
 
             switch (mode)
             {
-                case "Имя":
+                case false:
                     if (!cond) LogState($"Пользователя с именем {name} нету в базе данных");
                     break;
 
-                case "Логин":
+                case true:
                     if (!cond) LogState($"Пользователя с логином {name} нету в базе данных");
                     break;
             }
+            return null;
+        }
+        public User GetFullUser(string login , string name)//найти класс User по логину и имени 
+        {
+            bool cond = false;
+            foreach (var user in users)
+            {
+                if (user.name == name && user.login == login) { cond = true; return user; }
+            }
+            if (!cond) LogState($"Пользователя с именем {name} и логином {login} нету в базе данных");
+            return null;
+        }
+        public Note GetNote(DateTime time)//взять запись, которая находится в рамках [начальное время;конечное время) 
+        {
+            foreach (var auditory in auditoriums)
+            {
+                foreach(var note in auditory.timetable)
+                {
+                    if (note.startTime <= time && time < note.endTime) return note;
+                }
+            }
+            LogState($"Нету никаких записей в данное время: {time.ToString("dd-MM-yyyy HH:mm")}");
+            return null;
+        }
+        public Auditorium GetAuditorium(string tag)//найти аудиторию по имени 
+        {
+            foreach (var auditor in auditoriums)
+            {
+                if (auditor.tag == tag) return auditor;
+            }
+            LogState($"Аудитория с номером {tag} не найдена");
             return null;
         }
 

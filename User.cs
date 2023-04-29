@@ -7,10 +7,12 @@
         public string password;
         public Access access;
         public string name;
+        public List<Note> participating;
         public User(string user, string password, string access, string name, DataBase db)
         {
-            this.login = user;
+            login = user;
             this.password = password;
+            this.participating = new();
             switch (access)
             {
                 case "user":
@@ -27,6 +29,10 @@
                     break;
             }
             this.name = name;
+        }
+        public User()
+        {
+            participating = new();
         }
     }
 }

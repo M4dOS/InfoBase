@@ -17,7 +17,7 @@ namespace InfoBase
             const bool isDebug = false;
 
             //для верхней панели
-            const string version = "v0.3.1710 alpha";
+            const string version = "v0.4.2108 alpha";
             const string info = "Auditions" + " " + version;
 
             //прописываем настройки консоли
@@ -31,12 +31,13 @@ namespace InfoBase
             string workDir = Directory.GetCurrentDirectory() + @"\data\";
             string daysDir = workDir + @"days\";
             string logsDir = workDir + @"logs\";
+            string subjectDir = workDir + @"sub\";
 
             //настройка для EPPlus 
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             //подготовка датабазы 
-            DataBase db = new DataBase(logsDir);
+            DataBase db = new DataBase(logsDir, true);
             if (!File.Exists(workDir + "Data.xlsx")) db.CreateDataList(workDir + "Data.xlsx");
             if (!File.Exists(workDir + "Users.xlsx")) db.CreateUserList(workDir + "Users.xlsx");
             if (Directory.GetFiles(daysDir, "*.txt").Length == 0) db.CreateDayList("15.01.2001");
@@ -66,9 +67,10 @@ namespace InfoBase
             {
                 while (true)
                 {
-                    User user1 = db.GetUser("login1", "Логин");
-                    User user2 = db.GetUser("ИмяАдмина1", "Имя");
-                    User user3 = db.GetUser("ИмяАдмина2", "НеИмя");
+                    User user1 = db.GetUser("login1", true); 
+                    User user2 = db.GetUser("ИмяАдмина1", false);
+                    Note note1 = db.GetNote(DataBase.Date("01.01.2000 9:30"));
+                    Note note2 = db.GetNote(DataBase.Date("02.01.2000 9:30"));
                     Console.WriteLine("Жмакай любую клавишу"); Console.ReadKey();
                     /*место  для пары строчек кода*/
                 }
