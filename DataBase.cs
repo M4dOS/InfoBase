@@ -1,4 +1,7 @@
-﻿using OfficeOpenXml;
+﻿using DocumentFormat.OpenXml.Drawing;
+using OfficeOpenXml;
+using System.Diagnostics;
+using System.IO;
 
 namespace InfoBase
 {
@@ -9,10 +12,13 @@ namespace InfoBase
         public List<Auditorium> auditoriums;
         /*public List<Note> fullTimetable;*/
         public List<User> users;
+
         public string logfile_path;
+        public string data_path;
+        public string users_path;
+        public string days_path;
 
         bool consoleLogging;
-        /*public bool critError;*/
         int log_counter;
 
         //некоторые вспомогательные инструменты
@@ -39,8 +45,8 @@ namespace InfoBase
                     writer.Write('\n' + line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
                     if (consoleLogging) Console.WriteLine('\n' + line + " ЛОГ ЗАПУСКА " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
                 }
-                writer.Write(DateTime.Now.ToString("HH:mm:ss") + " : " + message + '\n');
-                if (consoleLogging) Console.Write(DateTime.Now.ToString("HH:mm:ss") + " : " + message + '\n');
+                writer.Write(DateTime.Now.ToString("HH:mm:ss.fff") + " : " + message + '\n');
+                if (consoleLogging) Console.Write(DateTime.Now.ToString("HH:mm:ss.fff") + " : " + message + '\n');
             }
         }
         public DataBase(string logfile_path, bool consoleLogging)//конструктор 
@@ -60,12 +66,17 @@ namespace InfoBase
         {
             //открываем файл с данными 
             string fullPath = excelFileName;
+            users_path = fullPath;
             ExcelPackage excel = new ExcelPackage(new FileInfo(fullPath));
             ExcelWorksheet? users = excel.Workbook.Worksheets["Данные"];
             if (users == null)
             {
-                LogState("Пересмотри вводимые тобой данные. Нажми любую клавишу для выхода");
-                Console.ReadKey();
+                LogState("Пересмотри вводимые тобой данные пользователей");
+                if (consoleLogging) 
+                {
+                    Console.WriteLine("Нажми кнопку для выхода");
+                    Console.ReadKey(); 
+                }
                 return false;
             }
 
@@ -76,7 +87,14 @@ namespace InfoBase
                 string? user_password = users.Cells[$"B{index}"].Value?.ToString();
                 string? user_access = users.Cells[$"C{index}"].Value?.ToString();
                 string? user_name = users.Cells[$"D{index}"].Value?.ToString();
-                if (user_password == null || user_login == null || user_access == null || user_name == null) break;
+                if (user_password == null || user_login == null || user_access == null || user_name == null)
+                {
+                    if (user_password == null && user_login == null && user_access == null && user_name == null)
+                    {
+                        break;
+                    }
+                    LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                }
                 else
                 {
                     this.users.Add(new(user_login, user_password, user_access, user_name, this));
@@ -90,6 +108,7 @@ namespace InfoBase
         {
             //открываем файл с данными 
             string fullPath = excelFileName;
+            data_path = fullPath;
             ExcelPackage excel = new ExcelPackage(new FileInfo(fullPath));
 
             //задаём списки 
@@ -99,8 +118,12 @@ namespace InfoBase
 
             if (subjects == null || teachers == null || auditoriums == null)
             {
-                LogState("Пересмотри вводимые тобой данные. Нажми любую клавишу для выхода");
-                Console.ReadKey();
+                LogState("Пересмотри вводимые тобой данные кабинетов, учителей и предметов");
+                if (consoleLogging)
+                {
+                    Console.WriteLine("Нажми кнопку для выхода");
+                    Console.ReadKey();
+                }
                 return false;
             }
 
@@ -108,7 +131,10 @@ namespace InfoBase
             while (true)
             {
                 string? subj = subjects.Cells[$"A{index}"].Value?.ToString();
-                if (subj == null) break;
+                if (subj == null)
+                {
+                    break;
+                }
                 else
                 {
                     this.subjects.Add(subj);
@@ -127,7 +153,10 @@ namespace InfoBase
                     }
 
                 string? teach = teachers.Cells[$"A{index}"].Value?.ToString();
-                if (teach == null) break;
+                if (teach == null)
+                {
+                    break;
+                }
                 else
                 {
                     bool cond = true;
@@ -154,7 +183,14 @@ namespace InfoBase
                 string? startTime = auditoriums.Cells[$"B{index}"].Value?.ToString().Split(' ')[1];
                 string? endTime = auditoriums.Cells[$"C{index}"].Value?.ToString().Split(' ')[1];
                 string? capacity = auditoriums.Cells[$"D{index}"].Value?.ToString();
-                if (codeName == null || startTime == null || endTime == null || capacity == null) break;
+                if (codeName == null || startTime == null || endTime == null || capacity == null)
+                {
+                    if (codeName == null && startTime == null && endTime == null && capacity == null)
+                    {
+                        break;
+                    }
+                    LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                }
                 else
                 {
                     string? start = startTime.Split(":")[0] + ':' + startTime.Split(":")[1];
@@ -167,12 +203,16 @@ namespace InfoBase
         }
         public bool FillDays(string workDir)//первоначальное заполнение всех броней 
         {
+            days_path = workDir;
             string[] files = Directory.GetFiles(workDir, "*.txt");
             Note? temp_note = new();
             Auditorium? temp_auitorium = new();
+
+            bool result = true;
+
             foreach (var fileName in files)
             {
-                string date = Path.GetFileName(fileName).Split(".txt")[0];
+                string date = System.IO.Path.GetFileName(fileName).Split(".txt")[0];
                 using (StreamReader reader = new StreamReader(fileName))
                 {
                     if (reader.EndOfStream)
@@ -208,11 +248,20 @@ namespace InfoBase
                                     }
                                 }
                             }
+
                             else if (parametrs.Length == 2 && !falseNote)
                             {
                                 User? temp_user = GetFullUser(parametrs[0], parametrs[1]);
-                                if (temp_auitorium == null || temp_note == null) { LogState($"Прочтение строки {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"}"); return false; }
-                                /*else*/ if (temp_user == null) { LogState($"Взятие пользователя по строке {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"} и Data.xlsx"); return false; }
+                                if (temp_auitorium == null || temp_note == null) 
+                                { 
+                                    LogState($"Прочтение строки {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"}"); 
+                                    result = false;
+                                }
+                                else if (temp_user == null) 
+                                { 
+                                    LogState($"Взятие пользователя по строке {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"} и Data.xlsx"); 
+                                    result = false;
+                                }
                                 else 
                                 {
                                     auditoriums.Find(x => x == temp_auitorium).timetable.Find(x => x == temp_note).participators.Add(temp_user);
@@ -222,11 +271,11 @@ namespace InfoBase
                                 }
                             }
                         }
-                        if (!cond) return false;
+                        if (!cond) result = false;
                     }
                 }
             }
-            return true;
+            return result;
         }
         public User GetUser(string name, bool mode)//найти класс User по определённому параметру 
         {
@@ -291,6 +340,198 @@ namespace InfoBase
             }
             LogState($"Аудитория с номером {tag} не найдена");
             return null;
+        }
+        public bool SetNote(Note old_note, Note new_note)
+        {
+            var aud = GetAuditorium(old_note.auditorium.tag);
+            if (aud.timetable.Remove(old_note))
+            {
+                aud.AddNote(new_note, this);
+                string filePath;
+
+                try
+                {
+                    filePath = days_path + old_note.startTime.ToString("dd.MM.yyyy") + ".txt"; // путь к файлу
+                }
+                catch (Exception ex) { LogState($"Ошибка: {ex}"); return false; }
+
+                /*Название предмета 1 | 9:00 | 10:00 | Преподаватель 1 | Доп описание для Название предмета 1 1 | a1*/
+                string searchLine = old_note.name + '|' + old_note.startTime.ToString("H:mm") + '|' + old_note.endTime.ToString("H:mm") + '|' 
+                                    + old_note.teacher.name + '|' + old_note.subname + '|' + old_note.auditorium.tag;// строка, которую нужно заменить
+                string newLine = new_note.name + '|' + new_note.startTime.ToString("H:mm") + '|' + new_note.endTime.ToString("H:mm") + '|' 
+                                 + new_note.teacher.name + '|' + new_note.subname + '|' + new_note.auditorium.tag; // новая строка, которой заменится найденная строка
+
+                // Открываем файл для чтения и записи
+                try
+                {
+                    using (StreamReader reader = new StreamReader(filePath))
+                    {
+                        // Создаем временный файл для записи
+                        string tempFilePath = System.IO.Path.GetTempFileName();
+
+                        // Открываем временный файл для записи
+                        using (StreamWriter writer = new StreamWriter(tempFilePath))
+                        {
+                            string line;
+                            string? temp_line = String.Empty;
+                            bool lineFound = false;
+                            bool sucess = false;
+
+                            // Читаем файл построчно
+                            while ((line = reader.ReadLine()) != null)
+                            {
+                                if (lineFound)
+                                {
+                                    if(temp_line != String.Empty) writer.WriteLine(temp_line);
+                                    lineFound = false;
+                                    sucess = true;
+                                }
+
+                                if (line.Contains(searchLine))
+                                {
+                                    writer.WriteLine(newLine);
+                                    lineFound = true;
+                                    foreach(var user in new_note.participators)
+                                    {
+                                        writer.WriteLine($"{user.login}|{user.name}");
+                                    }
+                                    while ((line = reader.ReadLine()) != null)
+                                    {
+                                        if (line.Split('|').Length > 2)
+                                        {
+                                            temp_line = line; 
+                                            break;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    writer.WriteLine(line);
+                                }
+                            }
+
+                            // Если строка не была найдена
+                            if (!sucess)
+                            {
+                                LogState($"Строка для замены \"{searchLine}\" не найдена");
+                                return false;
+                            }
+                        }
+
+                        // Закрываем файлы
+                        reader.Close();
+
+                        // Заменяем исходный файл временным файлом
+                        File.Delete(filePath);
+                        File.Move(tempFilePath, filePath);
+                    }
+                }
+                catch (IOException ex)
+                {
+                    LogState("Возникла следующая ошибка: " + ex.Message);
+                    return false;
+                }
+
+                return true;
+            }
+            else
+            {
+                LogState("Не получилось изменить запись (возможно, заменяемой вами записи не существует)");
+                return false;
+            }
+        }
+        public bool SetUser(User old_user, User new_user)
+        {
+            string fullPath = users_path;
+            ExcelPackage excel = new ExcelPackage(new FileInfo(fullPath));
+            ExcelWorksheet? users = excel.Workbook.Worksheets["Данные"];
+            if (users == null)
+            {
+                LogState("Пересмотри данные пользователей");
+                return false;
+            }
+            int index = 1;
+            while (true)
+            {
+                string? user_login = users.Cells[$"A{index}"].Value?.ToString();
+                string? user_password = users.Cells[$"B{index}"].Value?.ToString();
+                string? user_access = users.Cells[$"C{index}"].Value?.ToString();
+                string? user_name = users.Cells[$"D{index}"].Value?.ToString();
+                if (user_password == null || user_login == null || user_access == null || user_name == null)
+                {
+                    if (user_password == null && user_login == null && user_access == null && user_name == null)
+                    {
+                        break;
+                    }
+                    LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                }
+                else if(user_password == old_user.password || user_login == old_user.login 
+                        || user_access == old_user.access.ToString().ToLower() || user_name == old_user.name)
+                {
+                    users.Cells.SetCellValue(index - 1, 0, new_user.login);
+                    users.Cells.SetCellValue(index - 1, 1, new_user.password);
+                    users.Cells.SetCellValue(index - 1, 2, new_user.access.ToString().ToLower());
+                    users.Cells.SetCellValue(index - 1, 3, new_user.name);
+                    break;
+                }
+                else index++;
+            }
+            FileInfo excelFile = new(fullPath);
+            excel.SaveAs(excelFile);
+            return true;
+        }
+        public bool SetAuditorium(Auditorium old_aud, Auditorium new_aud)
+        {
+            //открываем файл с данными 
+            string fullPath = data_path;
+            ExcelPackage excel = new ExcelPackage(new FileInfo(fullPath));
+
+            //задаём списки 
+            ExcelWorksheet? auditoriums = excel.Workbook.Worksheets["Кабинеты"];
+
+            if (auditoriums == null)
+            {
+                LogState("Пересмотри вводимые тобой данные кабинетов");
+                if (consoleLogging)
+                {
+                    Console.WriteLine("Нажми кнопку для выхода");
+                    Console.ReadKey();
+                }
+                return false;
+            }
+
+            int index = 1;
+            while (true)
+            {
+                string? codeName = auditoriums.Cells[$"A{index}"].Value?.ToString();
+                string? startTime = auditoriums.Cells[$"B{index}"].Value?.ToString().Split(' ')[1];
+                string? endTime = auditoriums.Cells[$"C{index}"].Value?.ToString().Split(' ')[1];
+                string? capacity = auditoriums.Cells[$"D{index}"].Value?.ToString();
+                if (codeName == null || startTime == null || endTime == null || capacity == null)
+                {
+                    if (codeName == null && startTime == null && endTime == null && capacity == null)
+                    {
+                        break;
+                    }
+                    LogState($"Строка данных пользователя {index} выглядит неполной");
+                }
+                else if(old_aud.tag == codeName && old_aud.startTime+":00" == startTime && old_aud.endTime + ":00" == endTime 
+                        && old_aud.capacity == int.Parse(capacity))
+                {
+                    auditoriums.Cells.SetCellValue(index - 1, 0, new_aud.tag);
+                    auditoriums.Cells["B1"].Value = Date("01.01.2000 "+new_aud.startTime);
+                    auditoriums.Cells["B1"].Style.Numberformat.Format = "H:mm";
+                    auditoriums.Cells["C1"].Value = Date("01.01.2000 " + new_aud.endTime);
+                    auditoriums.Cells["C1"].Style.Numberformat.Format = "H:mm";
+                    auditoriums.Cells.SetCellValue(index - 1, 3, new_aud.capacity);
+                    break;
+                }
+                else index++;
+            }
+
+            FileInfo excelFile = new(fullPath);
+            excel.SaveAs(excelFile);
+            return true;
         }
 
 

@@ -8,6 +8,15 @@
         public Access access;
         public string name;
         public List<Note> participating;
+        
+        public User (User user)
+        {
+            login = user.login;
+            password = user.password;
+            access = user.access;
+            name = user.name;
+            participating = user.participating;
+        }
         public User(string user, string password, string access, string name, DataBase db)
         {
             login = user;

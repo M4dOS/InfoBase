@@ -9,7 +9,22 @@
         public string subname; //доп информация 
         public Auditorium auditorium; //аудитория 
         public List<User> participators; //записавшиеся 
-
+        
+        public Note(Note note)
+        {
+            if (note != null)
+            {
+                var note1 = note;
+                this.name = note1.name;
+                this.startTime = note1.startTime;
+                this.endTime = note1.endTime;
+                this.teacher = note1.teacher;
+                this.subname = note1.subname;
+                this.auditorium = note1.auditorium;
+                this.participators = note1.participators;
+            }
+            else return;
+        }
         public Note(string txtString, string day, DataBase db)
         {
             participators = new();
