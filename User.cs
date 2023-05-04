@@ -8,8 +8,8 @@
         public Access access;
         public string name;
         public List<Note> participating;
-        
-        public User (User user)
+
+        public User(User user)
         {
             login = user.login;
             password = user.password;
@@ -21,7 +21,7 @@
         {
             login = user;
             this.password = password;
-            this.participating = new();
+            participating = new();
             switch (access)
             {
                 case "user":

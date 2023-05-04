@@ -23,22 +23,22 @@
             this.startTime = startTime;
             this.endTime = endTime;
             this.capacity = capacity;
-            this.timetable = new();
+            timetable = new();
         }
         public bool AddNote(Note note, DataBase db)
         {
-            var startTime = DataBase.Date($"{note.startTime.Day}.{note.startTime.Month}.{note.startTime.Year}" + " " + this.startTime);
-            var endTime = DataBase.Date($"{note.endTime.Day}.{note.endTime.Month}.{note.endTime.Year}" + " " + this.endTime);
+            DateTime startTime = DataBase.Date($"{note.startTime.Day}.{note.startTime.Month}.{note.startTime.Year}" + " " + this.startTime);
+            DateTime endTime = DataBase.Date($"{note.endTime.Day}.{note.endTime.Month}.{note.endTime.Year}" + " " + this.endTime);
 
             if (note.auditorium != null && note.startTime >= startTime && note.endTime <= endTime)
             {
                 bool cond = true;
-                foreach (var note1 in timetable)
+                foreach (Note note1 in timetable)
                 {
                     if (!(note1.endTime <= note.startTime || note1.startTime >= note.endTime)) { cond = false; break; }
                 }
 
-                if (note.teacher == null) {db.LogState($"В брони \"{note.name}\" нету преподавателя (возможно, он отсутствует в базе данных)");return false;}
+                if (note.teacher == null) { db.LogState($"В брони \"{note.name}\" нету преподавателя (возможно, он отсутствует в базе данных)"); return false; }
                 if (cond) { timetable.Add(note); timetable.Sort((x, y) => x.startTime.CompareTo(y.startTime)); return true; }
                 else
                 {
@@ -53,9 +53,9 @@
                 return false;
             }
         }
-        public Auditorium() 
+        public Auditorium()
         {
-            this.timetable = new();
+            timetable = new();
         }
     }
 }
