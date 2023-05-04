@@ -16,7 +16,7 @@ namespace InfoBase
             const bool isDebug = false;
 
             //для верхней панели
-            const string version = "v0.5.2258 alpha";
+            const string version = "v0.6.1455 alpha";
             const string info = "Auditions" + " " + version;
 
             //прописываем настройки консоли
