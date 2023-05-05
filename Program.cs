@@ -7,6 +7,9 @@ namespace InfoBase
     {
         private static void Main(string[] args)
         {
+            //настройка для EPPlus 
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
             //задаём кодировку
             Console.OutputEncoding = Encoding.Unicode;
 
@@ -16,15 +19,15 @@ namespace InfoBase
             const bool isDebug = false;
 
             //для верхней панели
-            const string version = "v0.6.1455 alpha";
+            const string version = "v0.7.1233 alpha";
             const string info = "Auditions" + " " + version;
 
             //прописываем настройки консоли
             Console.SetWindowSize(consoleX, consoleY);
             if (isDebug)
             {
-                int countBuferMaps;
-                Console.SetBufferSize(consoleX, (consoleY + 1) * countBuferMaps);
+                int countBuferScreens = 5;
+                Console.SetBufferSize(consoleX, (consoleY + 1) * countBuferScreens);
             }
             else
             {
@@ -38,10 +41,6 @@ namespace InfoBase
             string workDir = Directory.GetCurrentDirectory() + @"\data\";
             string daysDir = workDir + @"days\";
             string logsDir = workDir + @"logs\";
-            /*string subjectDir = workDir + @"sub\";*/
-
-            //настройка для EPPlus 
-            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
             //подготовка датабазы 
             DataBase db = new(logsDir, true);
@@ -76,11 +75,14 @@ namespace InfoBase
                 _ = Console.ReadKey();
             }
 
-            //работа программы
+            //работа программы (писать свой код ТОЛЬКО здесь или внутри классов и функций в них
+            //всё что выше трогать категорически запрещено для правильной работы программы
             else
             {
                 while (true)
                 {
+                    ///тестовый набор функций работы программы, можно удалить после окончательния тестов
+                    ////////////////////////////////////////////////////////////////////////////////////
                     User user1 = db.GetUser("login1", true);
                     User user2 = db.GetUser("ИмяАдмина1", false);
                     User user3 = new(user1);
@@ -100,7 +102,8 @@ namespace InfoBase
                     _ = db.SetUser(user1, user3);
 
                     Console.WriteLine("Жмакай любую клавишу"); _ = Console.ReadKey();
-                    /*место  для пары строчек кода*/
+                    ////////////////////////////////////////////////////////////////////////////////////
+                    ///тестовый набор функций работы программы, можно удалить после окончательния тестов
                 }
             }
         }

@@ -12,21 +12,13 @@
 
         public Note(Note note)
         {
-            if (note != null)
-            {
-                Note note1 = note;
-                name = note1.name;
-                startTime = note1.startTime;
-                endTime = note1.endTime;
-                teacher = note1.teacher;
-                subname = note1.subname;
-                auditorium = note1.auditorium;
-                participators = note1.participators;
-            }
-            else
-            {
-                return;
-            }
+            name = note.name;
+            startTime = note.startTime;
+            endTime = note.endTime;
+            teacher = note.teacher;
+            subname = note.subname;
+            auditorium = note.auditorium;
+            participators = note.participators;
         }
         public Note(string txtString, string day, DataBase db)
         {
