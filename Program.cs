@@ -19,7 +19,7 @@ namespace InfoBase
             const bool isDebug = false;
 
             //для верхней панели
-            const string version = "v0.7.1233 alpha";
+            const string version = "v0.8.2155 alpha";
             const string info = "Auditions" + " " + version;
 
             //прописываем настройки консоли
@@ -53,25 +53,24 @@ namespace InfoBase
             {
                 _ = db.CreateUserList(workDir + "Users.xlsx");
             }
-            /*if (Directory.GetFiles(daysDir, "*.txt").Length == 0) db.CreateDayList("01.01.0001");*/
 
             //заполнение данных и проверка на подлинность (непустоту) 
             if (!db.FillUsers(workDir + "Users.xlsx"))
             {
                 db.LogState("Проблема со списком пользователей или ошибка FillUsers()");
-                Console.WriteLine($"Возникла ошибка, проверьте лог {DateTime.Now:dd-MM-yyyy}.log");
+                Console.WriteLine($"Возникла ошибка, проверьте лог {DateTime.Now:yyyy-MM-dd}.log");
                 _ = Console.ReadKey();
             }
             else if (!db.FillData(workDir + "Data.xlsx"))
             {
                 db.LogState("Проблема с базовыми данными или ошибка FillData()");
-                Console.WriteLine($"Возникла ошибка, проверьте лог {DateTime.Now:dd-MM-yyyy}.log");
+                Console.WriteLine($"Возникла ошибка, проверьте лог {DateTime.Now:yyyy-MM-dd}.log");
                 _ = Console.ReadKey();
             }
             else if (!db.FillDays(daysDir))
             {
                 db.LogState("Проблема с данными расписания или ошибка FillDays()");
-                Console.WriteLine($"Возникла ошибка, проверьте лог {DateTime.Now:dd-MM-yyyy}.log");
+                Console.WriteLine($"Возникла ошибка, проверьте лог {DateTime.Now:yyyy-MM-dd}.log");
                 _ = Console.ReadKey();
             }
 
@@ -83,23 +82,12 @@ namespace InfoBase
                 {
                     ///тестовый набор функций работы программы, можно удалить после окончательния тестов
                     ////////////////////////////////////////////////////////////////////////////////////
-                    User user1 = db.GetUser("login1", true);
-                    User user2 = db.GetUser("ИмяАдмина1", false);
-                    User user3 = new(user1);
-                    Note note1 = db.GetNote(DataBase.Date("01.01.2000 9:30"));
-                    Note note2 = db.GetNote(DataBase.Date("02.01.2000 9:30"));
-                    Note note3 = new(note1);
-                    Auditorium aud1 = new(db.auditoriums[0])
-                    {
-                        endTime = "23:30"
-                    };
+                    User user3 = db.GetUser("log1n10", true);
+                    Auditorium aud1 = new(db.auditoriums[0]);
 
-                    note3.name = note3.teacher.name;
-                    user3.login = "log1n1";
-
-                    _ = db.SetNote(note1, note3);
-                    _ = db.SetAuditorium(db.auditoriums[0], aud1);
-                    _ = db.SetUser(user1, user3);
+                    db.DeleteAuditorium(aud1);
+                    db.DeleteUser(user3);
+                    
 
                     Console.WriteLine("Жмакай любую клавишу"); _ = Console.ReadKey();
                     ////////////////////////////////////////////////////////////////////////////////////

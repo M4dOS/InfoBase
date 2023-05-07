@@ -29,10 +29,12 @@ namespace InfoBase
         public void LogState(string message)//логирование всего 
         {
             log_counter++;
-            string dirWithLogName = logfile_path + DateTime.Now.ToString("dd-MM-yyyy") + ".log";
+            bool newFile = false;
+            string dirWithLogName = logfile_path + DateTime.Now.ToString("yyyy-MM-dd") + ".log";
             if (!File.Exists(dirWithLogName))
             {
                 using (File.Create(dirWithLogName)) { }
+                newFile = true;
             };
 
             using StreamWriter writer = new(dirWithLogName, true);
@@ -41,7 +43,9 @@ namespace InfoBase
             for (int i = 0; i < n; i++) { line += '-'; }
             if (log_counter == 1)
             {
-                writer.Write('\n' + line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+                if (newFile) writer.Write(line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+                else writer.Write('\n' + line + " НОВЫЙ ЗАПУСК " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
+
                 if (consoleLogging)
                 {
                     Console.WriteLine('\n' + line + " ЛОГ ЗАПУСКА " + DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + '\n');
@@ -50,19 +54,29 @@ namespace InfoBase
             writer.Write(DateTime.Now.ToString("HH:mm:ss.fff") + " : " + message + '\n');
             if (consoleLogging)
             {
-                Console.Write(DateTime.Now.ToString("HH:mm:ss.fff") + " : " + message + '\n');
+                if (message.Contains('\n'))
+                {
+                    Console.Write(DateTime.Now.ToString("HH:mm:ss.fff") + " : " + message);
+                }
+                else Console.Write(DateTime.Now.ToString("HH:mm:ss.fff") + " : " + message + '\n');
             }
         }
-        public DataBase(string logfile_path, bool consoleLogging)//конструктор 
+        public User RandLogPass(string name, string access)
         {
-            log_counter = 0;
-            subjects = new();
-            teachers = new();
-            auditoriums = new();
-            users = new();
-            this.logfile_path = logfile_path;
-            this.consoleLogging = consoleLogging;
+            // Создание генератора случайных чисел
+            Random random = new Random();
+
+            // Создание случайного логина
+            string login = "user" + random.Next(100000, 999999);
+
+            // Создание случайного пароля
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+            string password = new string(Enumerable.Repeat(chars, 8)
+              .Select(s => s[random.Next(s.Length)]).ToArray());
+
+            return new(login, password, access, name, this);
         }
+
 
 
         //рабочие инструменты базы данных
@@ -133,7 +147,7 @@ namespace InfoBase
                     }
                 }
             }
-            LogState($"Нету никаких записей в данное время: {time:dd-MM-yyyy HH:mm}");
+            LogState($"Нету никаких записей в данное время: {time:yyyy-MM-dd HH:mm}");
             return null;
         }
         public Auditorium? GetAuditorium(string tag)//найти аудиторию по имени 
@@ -359,7 +373,7 @@ namespace InfoBase
             {
                 this.auditoriums.Insert(indexToIns, new_aud);
                 int index = 1;
-                while (index < auditoriums.Dimension.End.Row)
+                while (index <= auditoriums.Dimension.End.Row)
                 {
                     string? codeName = auditoriums.Cells[$"A{index}"].Value?.ToString();
                     string? startTime = auditoriums.Cells[$"B{index}"].Value?.ToString().Split(' ')[1];
@@ -451,7 +465,7 @@ namespace InfoBase
                 }
 
                 int index = 1;
-                while (index < subjects.Dimension.End.Row)
+                while (index <= subjects.Dimension.End.Row)
                 {
                     string? subj = subjects.Cells[$"A{index}"].Value?.ToString();
                     if (subj == null)
@@ -477,7 +491,7 @@ namespace InfoBase
         }
         public bool DeleteNote(Note delete_note)//удалить запись
         {
-            Auditorium aud = GetAuditorium(delete_note.auditorium.tag);
+            Auditorium aud = delete_note.auditorium;
             if (aud.timetable.Remove(delete_note))
             {
                 string filePath;
@@ -518,12 +532,13 @@ namespace InfoBase
                                 }
 
                                 lineFound = false;
-                                sucess = true;
+
                             }
 
                             if (line.Contains(searchLine))
                             {
                                 lineFound = true;
+                                sucess = true;
                                 while ((line = reader.ReadLine()) != null)
                                 {
                                     if (line.Split('|').Length > 2)
@@ -579,28 +594,6 @@ namespace InfoBase
                 return false;
             }
 
-            foreach (var aud in auditoriums)
-            {
-                for (int i = 0; i < aud.timetable.Count; i++)
-                {
-                    if (delete_user.access == Access.Teacher)
-                    {
-                        DeleteTeacher(delete_user.name);
-                    }
-                    else
-                    {
-                        for (int j = 0; j < aud.timetable[i].participators.Count; j++)
-                        {
-                            Note note0 = new(aud.timetable[i]);
-                            note0.participators.Remove(delete_user);
-                            SetNote(aud.timetable[i], note0);
-
-                        }
-                    }
-
-                }
-            }
-
             if (this.users.Remove(delete_user))
             {
                 int index = 1;
@@ -614,15 +607,17 @@ namespace InfoBase
                     {
                         if (user_password == null && user_login == null && user_access == null && user_name == null)
                         {
-                            break;
+
                         }
-                        LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                        else
+                        {
+                            LogState($"Строка данных юзера {index} выглядит неполной"); break;
+                        }
                     }
-                    else if (user_password == delete_user.password || user_login == delete_user.login
-                            || user_access == delete_user.access.ToString().ToLower() || user_name == delete_user.name)
+                    else if (user_password == delete_user.password && user_login == delete_user.login
+                            && user_access == delete_user.access.ToString().ToLower() && user_name == delete_user.name)
                     {
-                        ExcelRange rangeToDelete = users.Cells[index, 1, index, users.Dimension.End.Column];
-                        rangeToDelete.Delete(eShiftTypeDelete.Up);
+                        users.DeleteRow(index);
                         break;
                     }
                     else
@@ -632,6 +627,43 @@ namespace InfoBase
                 }
                 FileInfo excelFile = new(fullPath);
                 excel.SaveAs(excelFile);
+
+                for (int i = 0; i < auditoriums.Count; i++)
+                {
+                    for (int j = 0; j < auditoriums[i].timetable.Count; j++)
+                    {
+                        var note = auditoriums[i].timetable[j];
+                        if (delete_user.access == Access.Teacher)
+                        {
+                            if (note.teacher == delete_user) DeleteNote(note);
+                        }
+                        else
+                        {
+                            if (note.participators.Contains(delete_user)) DeleteNote(note);
+                        }
+                    }
+                }
+
+                foreach (var aud in auditoriums)
+                {
+                    for (int i = 0; i < aud.timetable.Count; i++)
+                    {
+                        if (delete_user.access == Access.Teacher)
+                        {
+                            DeleteTeacher(delete_user.name);
+                        }
+                        else
+                        {
+                            for (int j = 0; j < aud.timetable[i].participators.Count; j++)
+                            {
+                                Note note0 = new(aud.timetable[i]);
+                                note0.participators.Remove(delete_user);
+                                SetNote(aud.timetable[i], note0);
+                            }
+                        }
+                    }
+                }
+
                 return true;
             }
             else
@@ -663,30 +695,72 @@ namespace InfoBase
             if (this.auditoriums.Remove(delete_aud))
             {
                 int index = 1;
-                while (index < auditoriums.Dimension.End.Row)
+                while (index <= auditoriums.Dimension.End.Row)
                 {
                     string? codeName = auditoriums.Cells[$"A{index}"].Value?.ToString();
-                    string? startTime = auditoriums.Cells[$"B{index}"].Value?.ToString().Split(' ')[1];
-                    string? endTime = auditoriums.Cells[$"C{index}"].Value?.ToString().Split(' ')[1];
+                    DateTime timeValue;
+
+                    string? startTime;
+                    ExcelRange startTime0 = auditoriums.Cells[$"B{index}"];
+                    try
+                    {
+                        timeValue = DateTime.FromOADate(startTime0.GetValue<double>());
+                        startTime = timeValue.ToString("H:mm");
+                    }
+                    catch (Exception ex)
+                    {
+                        timeValue = Date(startTime0.GetValue<string>());
+                        startTime = timeValue.ToString("H:mm");
+
+                    }
+
+
+                    string? endTime;
+                    ExcelRange endTime0 = auditoriums.Cells[$"C{index}"];
+                    try
+                    {
+                        timeValue = DateTime.FromOADate(endTime0.GetValue<double>());
+                        endTime = timeValue.ToString("H:mm");
+                    }
+                    catch (Exception ex)
+                    {
+                        timeValue = Date(endTime0.GetValue<string>());
+                        endTime = timeValue.ToString("H:mm");
+
+                    }
                     string? capacity = auditoriums.Cells[$"D{index}"].Value?.ToString();
+
+
                     if (codeName == null || startTime == null || endTime == null || capacity == null)
                     {
                         if (codeName == null && startTime == null && endTime == null && capacity == null)
                         {
-                            break;
                         }
-                        LogState($"Строка данных пользователя {index} выглядит неполной");
+                        else
+                        {
+                            LogState($"Строка данных аудитории {index} выглядит неполной");
+                        }
                     }
-                    else if (delete_aud.tag == codeName && delete_aud.startTime + ":00" == startTime && delete_aud.endTime + ":00" == endTime
+                    else if (delete_aud.tag == codeName && delete_aud.startTime == startTime && delete_aud.endTime == endTime
                             && delete_aud.capacity == int.Parse(capacity))
                     {
-                        ExcelRange rangeToDelete = auditoriums.Cells[index, 1, index, auditoriums.Dimension.End.Column];
-                        rangeToDelete.Delete(eShiftTypeDelete.Up);
+                        auditoriums.DeleteRow(index);
                         break;
                     }
                     else
                     {
                         index++;
+                    }
+                }
+
+                for(int i = 0; i < this.auditoriums.Count; i++)
+                {
+                    var aud = this.auditoriums[i];
+                    if (delete_aud == aud) this.auditoriums.Remove(aud);
+                    for(int j = 0; j<aud.timetable.Count; j++)
+                    {
+                        var note = aud.timetable[j];
+                        if (note.auditorium == delete_aud) DeleteNote(note);
                     }
                 }
             }
@@ -723,20 +797,20 @@ namespace InfoBase
 
             if (this.subjects.Remove(delete_subject))
             {
-
-                foreach (Auditorium aud in auditoriums)
+                for (int i = 0; i < auditoriums.Count; i++)
                 {
-                    foreach (Note note in aud.timetable)
+                    for (int j = 0; j < auditoriums[i].timetable.Count; j++)
                     {
+                        var note = auditoriums[i].timetable[j];
                         if (note.name == delete_subject)
                         {
-                            _ = aud.timetable.Remove(note);
+                            DeleteNote(note);
                         }
                     }
                 }
 
                 int index = 1;
-                while (index < subjects.Dimension.End.Row)
+                while (index <= subjects.Dimension.End.Row)
                 {
                     string? subj = subjects.Cells[$"A{index}"].Value?.ToString();
                     if (subj == null)
@@ -745,8 +819,7 @@ namespace InfoBase
                     }
                     if (subj == delete_subject)
                     {
-                        ExcelRange rangeToDelete = subjects.Cells[index, 1, index, subjects.Dimension.End.Column];
-                        rangeToDelete.Delete(eShiftTypeDelete.Up);
+                        subjects.DeleteRow(index);
                     }
                     index++;
                 }
@@ -796,6 +869,7 @@ namespace InfoBase
             }
 
             int index = 1;
+            bool cond = false;
             while (index <= users.Dimension.End.Row)
             {
                 string? user_login = users.Cells[$"A{index}"].Value?.ToString();
@@ -810,11 +884,23 @@ namespace InfoBase
                         users.Cells.SetCellValue(index - 1, 1, new_user.password);
                         users.Cells.SetCellValue(index - 1, 2, new_user.access.ToString().ToLower());
                         users.Cells.SetCellValue(index - 1, 3, new_user.name);
+                        cond = true;
                         break;
                     }
-                    LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                    else
+                    {
+                        LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                        return false;
+                    }
                 }
                 index++;
+            }
+            if (!cond)
+            {
+                users.Cells.SetCellValue(index - 1, 0, new_user.login);
+                users.Cells.SetCellValue(index - 1, 1, new_user.password);
+                users.Cells.SetCellValue(index - 1, 2, new_user.access.ToString().ToLower());
+                users.Cells.SetCellValue(index - 1, 3, new_user.name);
             }
             FileInfo excelFile = new(fullPath);
             excel.SaveAs(excelFile);
@@ -842,29 +928,72 @@ namespace InfoBase
             }
 
             int index = 1;
-            while (index < auditoriums.Dimension.End.Row)
+            bool cond = false;
+            while (index <= auditoriums.Dimension.End.Row)
             {
                 string? codeName = auditoriums.Cells[$"A{index}"].Value?.ToString();
-                string? startTime = auditoriums.Cells[$"B{index}"].Value?.ToString().Split(' ')[1];
-                string? endTime = auditoriums.Cells[$"C{index}"].Value?.ToString().Split(' ')[1];
+                DateTime timeValue;
+
+                string? startTime;
+                ExcelRange startTime0 = auditoriums.Cells[$"B{index}"];
+                try
+                {
+                    timeValue = DateTime.FromOADate(startTime0.GetValue<double>());
+                    startTime = timeValue.ToString("H:mm");
+                }
+                catch (Exception ex)
+                {
+                    timeValue = Date(startTime0.GetValue<string>());
+                    startTime = timeValue.ToString("H:mm");
+
+                }
+
+
+                string? endTime;
+                ExcelRange endTime0 = auditoriums.Cells[$"C{index}"];
+                try
+                {
+                    timeValue = DateTime.FromOADate(endTime0.GetValue<double>());
+                    endTime = timeValue.ToString("H:mm");
+                }
+                catch (Exception ex)
+                {
+                    timeValue = Date(endTime0.GetValue<string>());
+                    endTime = timeValue.ToString("H:mm");
+
+                }
                 string? capacity = auditoriums.Cells[$"D{index}"].Value?.ToString();
                 if (codeName == null || startTime == null || endTime == null || capacity == null)
                 {
                     if (codeName == null && startTime == null && endTime == null && capacity == null)
                     {
-                        auditoriums.Cells.SetCellValue(index - 1, 0, new_aud.tag);
-                        auditoriums.Cells["B1"].Value = Date("01.01.2000 " + new_aud.startTime);
-                        auditoriums.Cells["B1"].Style.Numberformat.Format = "H:mm";
-                        auditoriums.Cells["C1"].Value = Date("01.01.2000 " + new_aud.endTime);
-                        auditoriums.Cells["C1"].Style.Numberformat.Format = "H:mm";
-                        auditoriums.Cells.SetCellValue(index - 1, 3, new_aud.capacity);
+                        index++;
+                        auditoriums.Cells[$"A{index}"].Value = new_aud.tag;
+                        auditoriums.Cells.SetCellValue(index - 1, 1, Date("01.01.2000 " + new_aud.startTime));
+                        auditoriums.Cells[$"B{index}"].Style.Numberformat.Format = "H:mm";
+                        auditoriums.Cells.SetCellValue(index - 1, 2, Date("01.01.2000 " + new_aud.endTime));
+                        auditoriums.Cells[$"C{index}"].Style.Numberformat.Format = "H:mm";
+                        auditoriums.Cells[$"D{index}"].Value = new_aud.capacity;
+                        cond = true;
                         break;
                     }
-                    LogState($"Строка данных пользователя {index} выглядит неполной");
+                    else
+                    {
+                        LogState($"Строка данных пользователя {index} выглядит неполной");
+                        return false;
+                    }
                 }
                 index++;
             }
-
+            if (!cond)
+            {
+                auditoriums.Cells[$"A{index}"].Value = new_aud.tag;
+                auditoriums.Cells.SetCellValue(index - 1, 1, Date("01.01.2000 " + new_aud.startTime));
+                auditoriums.Cells[$"B{index}"].Style.Numberformat.Format = "H:mm";
+                auditoriums.Cells.SetCellValue(index - 1, 2, Date("01.01.2000 " + new_aud.endTime));
+                auditoriums.Cells[$"C{index}"].Style.Numberformat.Format = "H:mm";
+                auditoriums.Cells[$"D{index}"].Value = new_aud.capacity;
+            }
 
             FileInfo excelFile = new(fullPath);
             excel.SaveAs(excelFile);
@@ -892,15 +1021,22 @@ namespace InfoBase
             }
 
             int index = 1;
-            while (index < subjects.Dimension.End.Row)
+            bool cond = false;
+            while (index <= subjects.Dimension.End.Row)
             {
                 string? subj = subjects.Cells[$"A{index}"].Value?.ToString();
                 if (subj == null)
                 {
                     subjects.Cells[$"A{index}"].Value = new_subject;
+                    cond = true;
                     break;
                 }
                 index++;
+            }
+
+            if (!cond)
+            {
+                subjects.Cells[$"A{index}"].Value = new_subject;
             }
 
             FileInfo excelFile = new(fullPath);
@@ -911,6 +1047,16 @@ namespace InfoBase
 
 
         //базовые функции, не требующиеся в дальнейшем использовании
+        public DataBase(string logfile_path, bool consoleLogging)//конструктор 
+        {
+            log_counter = 0;
+            subjects = new();
+            teachers = new();
+            auditoriums = new();
+            users = new();
+            this.logfile_path = logfile_path;
+            this.consoleLogging = consoleLogging;
+        }
         public bool FillUsers(string pathToFileUsers)//первоначальное заполнение всех пользователей 
         {
             //открываем файл с данными 
@@ -930,6 +1076,7 @@ namespace InfoBase
             }
 
             int index = 1;
+            bool cond = true;
             while (index <= users.Dimension.End.Row)
             {
                 string? user_login = users.Cells[$"A{index}"].Value?.ToString();
@@ -940,9 +1087,13 @@ namespace InfoBase
                 {
                     if (user_password == null && user_login == null && user_access == null && user_name == null)
                     {
-                        break;
+
                     }
-                    LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                    else
+                    {
+                        LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                        cond = false;
+                    }
                 }
                 else
                 {
@@ -950,7 +1101,7 @@ namespace InfoBase
                     index++;
                 }
             }
-            return true;
+            return cond;
 
         }
         public bool FillData(string pathToFileData)//заполнение списка предметов и учителей 
@@ -977,12 +1128,12 @@ namespace InfoBase
             }
 
             int index = 1;
-            while (index < subjects.Dimension.End.Row)
+            while (index <= subjects.Dimension.End.Row)
             {
                 string? subj = subjects.Cells[$"A{index}"].Value?.ToString();
                 if (subj == null)
                 {
-                    break;
+
                 }
                 else
                 {
@@ -993,7 +1144,7 @@ namespace InfoBase
 
             index = 1;
             List<string> temp_teachs = new();
-            while (index < teachers.Dimension.End.Row)
+            while (index <= teachers.Dimension.End.Row)
             {
                 if (index == 1)
                 {
@@ -1004,6 +1155,7 @@ namespace InfoBase
                     }
                 }
 
+                ////////////////////////////////////////////////////////////////
                 string? teach = teachers.Cells[$"A{index}"].Value?.ToString();
                 if (teach == null)
                 {
@@ -1024,28 +1176,65 @@ namespace InfoBase
                     cond = true;
                     index++;
                 }
-
-                if (this.teachers.Except(temp_teachs).ToList().Count != 0)
+                ////////////////////////////////////////////////////////////////
+            }
+            if (this.teachers.Except(temp_teachs).ToList().Count != 0)
+            {
+                string mes = "Списки учителей не совпадают со списком пользователей с доступом Teacher\nНехватает следующих учителей в списке :\n";
+                foreach (var str in this.teachers.Except(temp_teachs).ToList())
                 {
-                    LogState("Списки учителей не совпадают со списком пользователей с доступом Teacher");
-                    return false;
+                    mes += str + '\n';
                 }
+                LogState(mes);
+                return false;
             }
 
             index = 1;
-            while (index < auditoriums.Dimension.End.Row)
+            while (index <= auditoriums.Dimension.End.Row)
             {
                 string? codeName = auditoriums.Cells[$"A{index}"].Value?.ToString();
-                string? startTime = auditoriums.Cells[$"B{index}"].Value?.ToString().Split(' ')[1];
-                string? endTime = auditoriums.Cells[$"C{index}"].Value?.ToString().Split(' ')[1];
+                DateTime timeValue;
+
+                string? startTime;
+                ExcelRange startTime0 = auditoriums.Cells[$"B{index}"];
+                try
+                {
+                    timeValue = DateTime.FromOADate(startTime0.GetValue<double>());
+                    startTime = timeValue.ToString("H:mm");
+                }
+                catch (Exception ex)
+                {
+                    timeValue = Date(startTime0.GetValue<string>());
+                    startTime = timeValue.ToString("H:mm");
+
+                }
+
+
+                string? endTime;
+                ExcelRange endTime0 = auditoriums.Cells[$"C{index}"];
+                try
+                {
+                    timeValue = DateTime.FromOADate(endTime0.GetValue<double>());
+                    endTime = timeValue.ToString("H:mm");
+                }
+                catch (Exception ex)
+                {
+                    timeValue = Date(endTime0.GetValue<string>());
+                    endTime = timeValue.ToString("H:mm");
+
+                }
+
                 string? capacity = auditoriums.Cells[$"D{index}"].Value?.ToString();
                 if (codeName == null || startTime == null || endTime == null || capacity == null)
                 {
-                    if (codeName == null && startTime == null && endTime == null && capacity == null)
+                    if (codeName == null && startTime == null && endTime == null && capacity == null) { }
+                    if (codeName == null && capacity == null && auditoriums.Cells[$"B{index}"].Value?.ToString() == null
+                                                             && auditoriums.Cells[$"C{index}"].Value?.ToString() == null) { }
+                    else
                     {
-                        break;
+                        LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
+                        return false;
                     }
-                    LogState($"Строка данных аудиторий {index} выглядит неполной или является пустой");
                 }
                 else
                 {
@@ -1081,7 +1270,7 @@ namespace InfoBase
                     bool falseNote = true;
                     while ((line = reader.ReadLine()) != null)
                     {
-                        string[] parametrs = line.Split("|");
+                        string[]? parametrs = line.Split("|");
                         if (parametrs.Length == 6)
                         {
                             foreach (Auditorium aud in auditoriums)
@@ -1114,7 +1303,7 @@ namespace InfoBase
                             }
                             else if (temp_user == null)
                             {
-                                LogState($"Взятие пользователя по строке {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"} и Data.xlsx");
+                                LogState($"Взятие пользователя по строке {line} безуспешно завершено. Проверьте информацию в файле {date + ".txt"} и {data_path}");
                                 result = false;
                             }
                             else
@@ -1125,6 +1314,12 @@ namespace InfoBase
                                 /*temp_auitorium.timetable.Find(x => x == temp_note).participators.Add(temp_user);*/
                             }
                         }
+                        else if (parametrs == null || parametrs.Length < 2 || falseNote) { }
+                        else
+                        {
+                            LogState($"Неверный формат данных в строке {line}");
+                            result = false;
+                        }
                     }
                     if (!cond)
                     {
@@ -1134,7 +1329,7 @@ namespace InfoBase
             }
             return result;
         }
-        public bool SetTeacher(string old_teacher, string new_teacher)//сменить одного учителя на другого
+        bool SetTeacher(string old_teacher, string new_teacher)//сменить одного учителя на другого
         {
             //открываем файл с данными 
             string fullPath = data_path;
@@ -1185,7 +1380,7 @@ namespace InfoBase
                 }
 
                 int index = 1;
-                while (index < teachers.Dimension.End.Row)
+                while (index <= teachers.Dimension.End.Row)
                 {
                     string? teacher0 = teachers.Cells[$"A{index}"].Value?.ToString();
                     if (teacher0 == null)
@@ -1210,7 +1405,7 @@ namespace InfoBase
             excel.SaveAs(excelFile);
             return true;
         }
-        public bool DeleteTeacher(string delete_teacher)
+        bool DeleteTeacher(string delete_teacher)
         {
             //открываем файл с данными 
             string fullPath = data_path;
@@ -1254,7 +1449,7 @@ namespace InfoBase
                 }
 
                 int index = 1;
-                while (index < teachers.Dimension.End.Row)
+                while (index <= teachers.Dimension.End.Row)
                 {
                     string? teacher0 = teachers.Cells[$"A{index}"].Value?.ToString();
                     if (teacher0 == null)
@@ -1264,8 +1459,7 @@ namespace InfoBase
 
                     if (teacher0 == delete_teacher)
                     {
-                        ExcelRange rangeToDelete = teachers.Cells[index, 1, index, teachers.Dimension.End.Column];
-                        rangeToDelete.Delete(eShiftTypeDelete.Up);
+                        teachers.DeleteRow(index);
                     }
                     index++;
                 }
@@ -1280,7 +1474,7 @@ namespace InfoBase
             excel.SaveAs(excelFile);
             return true;
         }
-        public bool AddTeacher(string new_teacher)
+        bool AddTeacher(string new_teacher)
         {
             //открываем файл с данными 
             string fullPath = data_path;
@@ -1301,15 +1495,21 @@ namespace InfoBase
             }
 
             int index = 1;
-            while (index < teachers.Dimension.End.Row)
+            bool cond = false;
+            while (index <= teachers.Dimension.End.Row)
             {
                 string? teacher0 = teachers.Cells[$"A{index}"].Value?.ToString();
                 if (teacher0 == null)
                 {
                     teachers.Cells[$"A{index}"].Value = new_teacher;
+                    cond = true;
                     break;
                 }
                 index++;
+            }
+            if (!cond)
+            {
+                teachers.Cells[$"A{index}"].Value = new_teacher;
             }
 
             FileInfo excelFile = new(fullPath);
