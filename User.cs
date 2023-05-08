@@ -3,11 +3,11 @@
     internal enum Access { User, Teacher, Admin }
     internal class User
     {
-        public string login;
-        public string password;
-        public Access access;
-        public string name;
-        public List<Note> participating;
+        public string login; //логин
+        public string password; //пароль
+        public Access access; //доступ
+        public string name; //имя
+        public List<Note> participating; //где участвует
 
         public User(User user)
         {
