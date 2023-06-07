@@ -1,5 +1,12 @@
-﻿using OfficeOpenXml;
-
+﻿using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.Drawing.Diagrams;
+using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
+using OfficeOpenXml;
+using System.Formats.Tar;
+using System.Reflection.Metadata.Ecma335;
+using Windows.Devices.Bluetooth.Advertisement;
+using Windows.System;
 
 namespace InfoBase
 {
@@ -208,7 +215,7 @@ namespace InfoBase
                     }
                 }
             }
-            LogState($"Нету никаких записей в данное время: {time:dd.MM.yyy HH:mm}");
+            LogState($"Нету никаких записей в данное время: {time:dd.MM.yyyy HH:mm}");
             return null;
         }
         public Auditorium? GetAuditorium(string tag)//найти аудиторию по имени 
@@ -754,21 +761,21 @@ namespace InfoBase
                     }
                     else
                     {*/
-                        foreach (Auditorium aud in auditoriums)
+                    foreach (Auditorium aud in auditoriums)
+                    {
+                        for (int i = 0; i < aud.timetable.Count; i++)
                         {
-                            for (int i = 0; i < aud.timetable.Count; i++)
+                            if (aud.timetable[i].participators.Contains(delete_user))
                             {
-                                if (aud.timetable[i].participators.Contains(delete_user))
-                                {
-                                    Note note0 = new(aud.timetable[i]);
-                                    note0.participators.Remove(delete_user);
-                                    SetNote(aud.timetable[i], note0);
-                                    this.users.Remove(delete_user);
-                                    i--;
-                                }
-
+                                Note note0 = new(aud.timetable[i]);
+                                note0.participators.Remove(delete_user);
+                                SetNote(aud.timetable[i], note0);
+                                this.users.Remove(delete_user);
+                                i--;
                             }
+
                         }
+                    }
                     /*}*/
                 }
 
@@ -1712,11 +1719,11 @@ namespace InfoBase
             ExcelWorksheet worksheet3 = excel.Workbook.Worksheets.Add("Кабинеты");
 
             //добавляем данные 
-           /* worksheet1.Cells["A1"].Value = "Учителя";
-            worksheet1.Column(1).Width = 100;
+            /* worksheet1.Cells["A1"].Value = "Учителя";
+             worksheet1.Column(1).Width = 100;
 
-            worksheet2.Cells["A1"].Value = "Предметы";
-            worksheet2.Column(1).Width = 100;*/
+             worksheet2.Cells["A1"].Value = "Предметы";
+             worksheet2.Column(1).Width = 100;*/
 
             worksheet3.Cells["A1"].Value = "Кодовый номер";
             worksheet3.Column(1).Width = 15.5;
@@ -1778,5 +1785,391 @@ namespace InfoBase
                 return fullPath;
             }
         }
+
+        ////////////////////////////////////////////////////////////////////////////////////////
+        /////////////   Штуки для реализации штук ниже   ///////////////////////////////////////
+
+        public List<Note> GetNotesInSameTime(DateTime dt)
+        {
+            List<Note> notes = new List<Note>();
+            int count = 0;
+
+            string dateString = dt.ToString("yyyy.MM.dd") + ".day";
+            string path = "data\\days\\" + dateString;
+            //string item = user.login + "|" + user.name;
+            var lines = File.ReadAllLines(path).ToList();
+
+            string target = dt.ToString("HH:mm");
+            for (int i = 0; i < lines.Count; i++)
+            {
+                bool checkTime = lines[i].Contains(target);
+                if (checkTime == true)
+                {
+                    count++;
+                    string[] words = lines[i].Split('|');
+
+                    string name = words[0];
+                    string startTimeString = dt.ToString("yyyy.MM.dd") + " " + words[1];
+                    DateTime startTime = Date(startTimeString);
+                    string endTimeString = dt.ToString("yyyy.MM.dd") + " " + words[2];
+                    DateTime endTime = Date(endTimeString);
+                    string t= words[3];
+                    User teacher = null;
+                    for (int j = 0; j < users.Count; j++)
+                    {
+                        if (users[j].name == t)
+                        {
+                            teacher = users[j];
+                        }
+                    }
+                    string subname = words[4];
+                    string room = words[5];
+                    Auditorium auditorium = null;
+                    for (int j = 0; j < auditoriums.Count; j++)
+                    {
+                        if (auditoriums[j].tag == room)
+                        {
+                            auditorium = auditoriums[j];
+                        }
+                    }
+
+                    if (teacher == null)
+                    {
+                        LogState("teacher");
+                    }
+                    if (auditorium == null)
+                    {
+                        LogState("auditorium");
+                    }
+                    Note note = new Note(name, startTime, endTime, teacher, subname, auditorium);
+                    notes.Add(note);
+                    /*foreach(string s in words)
+                    {
+                        LogState(s);
+                    }*/
+
+                }
+            }
+/*            LogState(count.ToString());
+            foreach (Note note in notes)
+            {
+                LogState(note.auditorium.tag);
+            }*/
+            return notes;
+        }//ищет всех записей содержащие одинаковую дату и время
+        public List<Note> GetNotesInSameRoom(DateTime dt, Auditorium aud) //ищет записи с одинаковой датой и аудиторией
+        {
+            List<Note> notes = new List<Note>();
+            int count = 0;
+
+            string dateString = dt.ToString("yyyy.MM.dd") + ".day";
+            string path = "data\\days\\" + dateString;
+            var lines = File.ReadAllLines(path).ToList();
+
+            string target = aud.tag;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                bool checkRoom = lines[i].Contains(target);
+                if (checkRoom == true)
+                {
+                    count++;
+                    string[] words = lines[i].Split('|');
+
+                    string name = words[0];
+                    string startTimeString = dt.ToString("yyyy.MM.dd") + " " + words[1];
+                    DateTime startTime = Date(startTimeString);
+                    string endTimeString = dt.ToString("yyyy.MM.dd") + " " + words[2];
+                    DateTime endTime = Date(endTimeString);
+                    string t = words[3];
+                    User teacher = null;
+                    for (int j = 0; j < users.Count; j++)
+                    {
+                        if (users[j].name == t)
+                        {
+                            teacher = users[j];
+                        }
+                    }
+                    string subname = words[4];
+                    string room = words[5];
+                    Auditorium auditorium = null;
+                    for (int j = 0; j < auditoriums.Count; j++)
+                    {
+                        if (auditoriums[j].tag == room)
+                        {
+                            auditorium = auditoriums[j];
+                        }
+                    }
+
+                    if (teacher == null)
+                    {
+                        LogState("teacher");
+                    }
+                    if (auditorium == null)
+                    {
+                        LogState("auditorium");
+                    }
+                    Note note = new Note(name, startTime, endTime, teacher, subname, auditorium);
+                    notes.Add(note);
+                }
+            }
+/*            LogState(count.ToString());
+            foreach (Note note in notes)
+            {
+                LogState(note.auditorium.tag);
+            }*/
+            return notes;
+        }
+        public bool CheckDate(string dt)
+        {
+            DateTime check;
+            return DateTime.TryParse(dt, out check);
+        }//проверка на корректность даты (возможность преобразовать в DateTime)
+        public bool ISRangeInRangeDate(DateTime start, DateTime end, List<Note> notes)
+        {
+            bool test = true;
+            int testInt = 0;
+            for (int i = 0; i < notes.Count; i++)
+            {
+                if (start >= notes[i].startTime && start < notes[i].endTime ||
+                     end > notes[i].startTime && end <= notes[i].endTime ||
+                     start <= notes[i].startTime && end >= notes[i].endTime)
+                {
+                    test = false;
+                    testInt++;
+                    return test;
+                }
+                else
+                {
+                    test = true;
+                    return test;
+                }
+            }
+            if (test == false) return false;
+            else if (testInt > 0) return false;
+            else return true;
+        } //проверка диапозона времени на все диапозоны из аудиторий
+
+        ////////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////     для студента       //////////////////////////////////////////
+
+        public void StudentSubscribe(User user) //запись ученика на предмет
+        {
+            LogState("Вводить время циферками: dd.mm.yyyy hh:mm");
+            string FullDateTime = Console.ReadLine();
+            LogState("Вы ввели: " + FullDateTime);
+            bool check = CheckDate(FullDateTime);
+            if (check == false)
+            {
+                LogState("Пук пук... пользователь неверно ввел дату и метод не может работать...");
+            }
+            else
+            {
+                DateTime sampleTime = DataBase.Date(FullDateTime);
+
+                List<Note> notes = GetNotesInSameTime(sampleTime);
+                if (notes.Count >= 0)
+                {
+                    LogState("В это время проводится:");
+                    for (int i = 0; i < notes.Count; i++)
+                    {
+                        LogState(i + 1 + ") " + notes[i].name + "     " + notes[i].auditorium.tag + "  " + notes[i].teacher.name);
+                    }
+                    LogState("Введите индекс желаемой записи:");
+                    int choseNote = Int32.Parse(Console.ReadLine()) - 1;
+                    if (choseNote < 0 || choseNote > notes.Count)
+                    {
+                        LogState("Пук пук... пользователь ввел несуществующий индекс");
+                    }
+                    else
+                    {
+                        /*                for (int i = 0; i < notes.Count; i++)
+                                        {
+                                            if (i == choseNote)
+                                            {
+                                                Note note = notes[i];
+                                                LogState("Вы выбрали   " + note.name + "             кабинет " + note.auditorium.tag);
+                                            }
+                                        }*/
+
+                        Note noteOne = notes[choseNote];   //GetNote(sampleTime);
+
+                        LogState("Вы выбрали   " + noteOne.name + "             кабинет " + noteOne.auditorium.tag);
+                        LogState("Желаете зарегестрироваться?              1 - да        2 - нет");
+
+                        switch (Console.ReadKey(false).Key)
+                        {
+                            case ConsoleKey.D1:
+                                noteOne.participators.Add(user);
+                                LogState("Вы зарегались");
+
+                                string dateString = sampleTime.ToString("yyyy.MM.dd") + ".day";
+                                //LogState(dateString);
+                                string path = "data\\days\\" + dateString;
+                                //LogState(path);
+                                string item = user.login + "|" + user.name;
+                                var lines = File.ReadAllLines(path).ToList();
+
+                                string target = noteOne.name;
+                                int index = lines.FindIndex(s => s.Contains(target));
+                                lines.Insert(index + 1, item);
+                                File.WriteAllLines(path, lines);
+
+                                LogState("Список всез зарегавшихся:");
+                                for (int i = 0; i < noteOne.participators.Count; i++)
+                                {
+                                    LogState(noteOne.participators[i].name);
+                                }
+                                break;
+
+                            case ConsoleKey.D2:
+                                LogState("Вы не зарегались");
+                                break;
+                            default:
+                                break;
+                        }
+                        LogState("");
+                    }
+                }
+                else if (notes.Count == 0)
+                {
+                    LogState("В данное время нет созданных записей: " + FullDateTime);
+                    LogState("Проверьте корректность введенной даты");
+                }
+                else
+                {
+                    LogState("ОШИБКА   СТОП000... какой-то сбой в GetNotesInSameTime или StudentSubscribe");
+                }
+            }
+        }
+        public void StudentAllParticipation(User user)
+        {
+
+        } //отображение всех записей, где учавствует юзер
+        //пусто
+
+        ////////////////////////////////////////////////////////////////////////////////////////
+        //////////////////////     для преподователей     //////////////////////////////////////
+
+        public void TeacherReserveTime(User user) //создание записи через: день->кабинет->время
+        {
+            //пусто
+        }
+        //пустой
+        public void TeacherAllParticipation(User user)
+        {
+
+        } //отображение всех записей, которые создал юзер
+        //пусто
+        public void TeacherReserveRoom(User user) //создание записи через: кабинет->дата->время
+        {
+            LogState("Введите название кабинета");
+            string roomString = Console.ReadLine();
+            LogState("Вы ввели: " + roomString);
+            Auditorium room = GetAuditorium(roomString);
+            if (room == null)
+            {
+                LogState("Такой аудитории нет");
+            }
+            else
+            {
+                LogState("Рабочии часы: " + room.startTime + " - " + room.endTime);
+
+                LogState("Вводить день для бронирования циферками: dd.mm.yyyy");
+                string dateString = Console.ReadLine();
+                string FullDateTime = dateString + " 00:00";
+                LogState("Вы ввели: " + FullDateTime);
+                bool check = CheckDate(FullDateTime);
+
+                if (check == false)
+                {
+                    LogState("Проблема с датой");
+                }
+                else
+                {
+                    DateTime date = DataBase.Date(FullDateTime);
+                    string datePath = date.ToString("yyyy.MM.dd") + ".day";
+                    string path = "data\\days\\" + datePath;
+
+                    //проверка на существование файла с днем (в противном случае создать)
+                    if(File.Exists(path) == false)
+                    {
+                        //File.Create(path);
+                        using (StreamWriter sw = new StreamWriter(path));
+
+                    }
+
+                    List<Note> notes = GetNotesInSameRoom(date, room);
+
+                    if (notes.Count == null) { } //если никого нет
+                    else
+                        LogState("Рабочии часы: " + room.startTime + " - " + room.endTime);
+                    {
+                        if (notes.Count > 0)
+                        {
+                            LogState("Уже забранированное время:");
+                            for (int i = 0; i < notes.Count; i++)
+                            {
+                                LogState($"{notes[i].startTime.ToString("t")}" + " - " + $"{notes[i].endTime.ToString("t")}");
+                            }
+                        }
+                    } //если кто-то есть
+
+                    LogState("");
+                    LogState("Введите время начала брони (hh:mm):");
+                    string startTimeString = Console.ReadLine();
+                    string fullStartTimeString = dateString + " " + startTimeString;
+                    bool checkI = CheckDate(fullStartTimeString);
+                    if (checkI == false)
+                    {
+                        LogState("Проблема с датой");
+                    }
+                    else
+                    {
+                        DateTime startTime = DataBase.Date(fullStartTimeString);
+
+                        LogState("Введите время конца брони (hh:mm):");
+                        string endTimeString = Console.ReadLine();
+                        string fullEndTimeString = dateString + " " + endTimeString;
+                        bool checkII = CheckDate(fullEndTimeString);
+                        if (checkII == false)
+                        {
+                            LogState("Проблема с датой");
+                        }
+                        else
+                        {
+                            DateTime endTime = DataBase.Date(fullEndTimeString);
+
+                            //проверка на пересечение с другими датами
+                            //LogState(startTime + " - " + endTime);
+                            bool checkIII = ISRangeInRangeDate(startTime,endTime, notes);
+                            //сделать проверку на пересечение срабочими часами
+
+                            if (checkIII == false) LogState("В это время нельзя сделать бронь в аудиторию " + room.tag);
+                            else
+                            {
+                                //заполнение строки
+                                LogState("Введите название предмета/мероприятия:");
+                                string subject = Console.ReadLine();
+                                LogState("Введите комментарий:");
+                                string subjectInfo = Console.ReadLine();
+                                string fillInfo = subject + "|" + startTimeString + "|" + endTimeString + "|" + user.name + "|" + subjectInfo + "|" + room.tag;
+                                LogState(fillInfo);
+
+                                //редактирование текстового файла
+                                var lines = File.ReadAllLines(path).ToList();
+
+                                File.AppendAllText(path, fillInfo);
+                                File.AppendAllText(path, "\n \n");
+                                LogState("Запись создана");
+                            }
+                        }
+                    }
+                }
+            }
+            
+        }
+
     }
 }
+
+// для реализации пользователя: сделать проверку на одинаковое имя (не должны существовать юзеры с одинак. именами)

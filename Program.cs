@@ -14,7 +14,7 @@ namespace InfoBase
             const int consoleX = 150; //длина консоли
             const int consoleY = 50; //высота консоли
             const bool isDebug = true; //переключатель между режимом дебага и обычным режимом (логирование работает в обоих случаях)
-            const string version = "v1.0.1317 alpha"; //строка версии (смотри правила оформления ниже)
+            const string version = "v1.1.2020 alpha"; //строка версии (смотри правила оформления ниже)
 
             /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
             Оформлять строку version в соответствии с правилом:
@@ -117,9 +117,11 @@ namespace InfoBase
                 db.LogState($"Начало работы программы: {DateTime.Now.ToString("F")}{DateTime.Now.ToString(".fff")}"); //просто нужно
                 while (true)
                 {
-                    
+ 
 
 
+                    Console.ReadKey();
+                    /*db.Update();*/
                 }
             }
         }

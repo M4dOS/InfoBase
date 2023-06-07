@@ -8,7 +8,6 @@
         public int capacity; //вместимость 
         public List<Note> timetable; //расписание 
 
-
         public Auditorium(Auditorium aud)
         {
             tag = aud.tag;
@@ -57,5 +56,9 @@
         {
             timetable = new();
         }
+
+        //////////////////////////////////
+
+
     }
 }
